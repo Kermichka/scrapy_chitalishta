@@ -31,8 +31,6 @@ class OtdelniDanniSPider(scrapy.Spider):
         emails = filter(lambda email: re.match(r'\S+@\S+', email), emails)
         formatted_emails = ', '.join(emails)
 
-        print(response.css("tr:nth-child(7) td[colspan='3']::text").get())
-        #TODO links, vs code commands, clean_text
         yield {
             # "Линк": response.url,
             "Статус": response.css('tr:nth-child(3) td[colspan="3"]::text').get().strip(),
@@ -60,4 +58,3 @@ class OtdelniDanniSPider(scrapy.Spider):
                 yield scrapy.Request(response.urljoin(link), callback=self.parse)
 def clean_text(text):
         return text.strip().replace('\n', ' ')
-

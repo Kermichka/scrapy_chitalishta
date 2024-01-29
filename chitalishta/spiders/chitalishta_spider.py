@@ -24,4 +24,3 @@ class ChitalishteSpider(scrapy.Spider):
         for link in pagination_links:
             if "sql_which" in link:
                 yield scrapy.Request(response.urljoin(link), callback=self.parse)
-        
