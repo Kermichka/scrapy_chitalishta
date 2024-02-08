@@ -3,7 +3,52 @@ from pathlib import Path
 import scrapy
 import re
 import csv
-    
+
+
+def format_broi(broi):
+    broi = broi.lower()
+
+    if not broi.isnumeric():
+        return ""
+
+    if broi == "0":
+        return 0
+
+    return float(broi)
+
+def format_texts(text):
+    if text is None:
+        return ""
+
+    text = text.strip()
+    text_lower = text.lower()
+
+    if (
+        text == "0"
+        or text == "-"
+        or text == "o"
+        or "не" in text_lower
+        # due to special cases like "нама"
+        or re.search(r'н.ма', text_lower)
+    ):
+        return ""
+
+    text = re.sub(r'\s*[0-9]\.\s*', ' ', text)
+    text = re.sub(r'\s*[\r\n;\t]+\s*', ' | ', text)
+
+    if text.startswith('-'):
+        text = text[1:].lstrip()
+
+    # remove - after pipes with and without space
+    text = re.sub(r'\|\s*-', '| ', text)
+
+    # # remove additional pipes with and without space between them
+    # text = re.sub(r'\|\s*\|', '|', text)
+    # text = re.sub(r'\|+', '|', text)
+
+    return text
+
+
 class InformacionniKartiSpider(scrapy.Spider):
 
     name = "informacionni_karti"
@@ -36,47 +81,16 @@ class InformacionniKartiSpider(scrapy.Spider):
             for link in information_card_links:
                 yield scrapy.Request(response.urljoin(link), callback=self.parse_information_cards)
             yield from self.process_pagination(response)
-    
+
 
     def parse_information_cards(self, response):
-        def format_broi(broi):
-            broi = broi.lower()
-            if not broi.isnumeric() or broi == "0":
-                return ""
-            return float(broi)
-        
-        def format_texts(text):
-            if text is None:
-                return ""
-            text = text.strip()
-            text_lower = text.lower()
-
-            # due to special cases "нама"
-            if re.search(r'н.ма', text_lower) or "не" in text_lower or text == "-" or text == "0" or text == "o":
-                return ""
-            text = re.sub(r'[\r\n;\t]', '|', text)
-
-
-            if text.startswith('-'):
-                text = text[1:].lstrip()
-            
-            # remove - after pipes with and without space
-            text = re.sub(r'\|\s*-', '|', text)
-
-            # remove additional pipes with and without space between them
-
-            text = re.sub(r'\|\s*\|', '|', text)
-            text = re.sub(r'\|+', '|', text)
-            
-            return text
-       
         h2_text = response.css('table h2::text').get()
         h2_text_numbers = re.findall(r'\d+', h2_text)
         info_karta_za = ''.join(h2_text_numbers)
 
         phones = format_texts(response.css('input[name="form[phone]"]::attr(value)').get()).replace(',','|')
         formatted_phones = str(re.sub(r'[^0-9/,\|]', '', phones)).replace(',', '|')
-        
+
         email = response.css('input[name="form[email]"]::attr(value)').get()
         emails = re.split(r'\s|[,;]', email)
         emails = filter(lambda email: re.match(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', email), emails)
@@ -89,7 +103,7 @@ class InformacionniKartiSpider(scrapy.Spider):
 
         naimenovanie = response.css('input[name="form[name]"]::attr(value)').get().strip()
         formatted_naimenovanie = naimenovanie.replace('"','')
-        
+
         data = {
             "ИНФОРМАЦИОННА КАРТА ЗА": info_karta_za,
             "Рег. номер": response.css('input[name="form[regid]"]::attr(value)').get().strip(),
@@ -176,3 +190,7 @@ class InformacionniKartiSpider(scrapy.Spider):
         #             self.current_page += 1
         #             yield scrapy.Request(response.urljoin(link), callback=self.parse)
         #             break
+
+if __name__ == "__main__":
+    print(format_texts('Поетична група "Златно перо"; Група за художествено слово;Група за народни обичаи и обреди "Пеено хоро"; Консултации по математика'))
+    print(format_texts('1. Кръжок "Сръчковци" ; 2. Арт работилница „Хоби и релакс”'))
